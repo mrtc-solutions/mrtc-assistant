@@ -468,22 +468,76 @@
             }
         }
 
-        // Enhanced intelligent response system
-        async function getIntelligentResponse(message) {
-            const lowerMessage = message.toLowerCase();
-            let responseMode = 'global';
-            
-            // MRTC-specific queries
-            const mrtcKeywords = ['mrtc', 'francis fweta', 'research consultancy', 'tasking solutions', 'your company', 'your services'];
-            const isMRTCQuery = mrtcKeywords.some(keyword => lowerMessage.includes(keyword));
-            
-            if (isMRTCQuery) {
-                responseMode = 'mrtc';
-                return {
-                    text: generateMRTCResponse(lowerMessage),
-                    mode: 'mrtc'
-                };
-            }
+        // Enhanced intelligent response system with REAL AI
+async function getIntelligentResponse(message) {
+    const lowerMessage = message.toLowerCase();
+    
+    try {
+        // First, check if it's MRTC-specific to use our knowledge base
+        const mrtcKeywords = ['mrtc', 'francis fweta', 'research consultancy', 'tasking solutions', 'your company', 'your services', 'your team'];
+        const isMRTCQuery = mrtcKeywords.some(keyword => lowerMessage.includes(keyword));
+        
+        if (isMRTCQuery) {
+            const mrtcResponse = generateMRTCResponse(lowerMessage);
+            return {
+                text: mrtcResponse,
+                mode: 'mrtc'
+            };
+        }
+        
+        // For all other queries, use DeepSeek API
+        const response = await fetch('https://api.deepseek.com/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer YOUR_DEEPSEEK_API_KEY_HERE'
+            },
+            body: JSON.stringify({
+                model: "deepseek-chat",
+                messages: [
+                    {
+                        role: "system",
+                        content: `You are MRTC Assistant, an AI for MRTC Research and Tasking Solutions. 
+                        Always be helpful, professional, and provide accurate information. 
+                        When asked about MRTC, use this company info: ${JSON.stringify(mrtcKnowledge)}
+                        For other topics, provide comprehensive, accurate information.`
+                    },
+                    {
+                        role: "user", 
+                        content: message
+                    }
+                ],
+                stream: false,
+                temperature: 0.7
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('API request failed');
+        }
+        
+        const data = await response.json();
+        return {
+            text: data.choices[0].message.content,
+            mode: 'global'
+        };
+        
+    } catch (error) {
+        console.error('API Error:', error);
+        // Fallback to our local intelligence
+        const domain = detectKnowledgeDomain(lowerMessage);
+        if (domain) {
+            return {
+                text: await generateWorldKnowledgeResponse(message, domain),
+                mode: 'global'
+            };
+        }
+        return {
+            text: await generateGeneralIntelligentResponse(message),
+            mode: 'global'
+        };
+    }
+}
             
             // World knowledge queries - detect domain
             const domain = detectKnowledgeDomain(lowerMessage);
