@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Linking } from 'react-native';
 import * as Contacts from 'expo-contacts';
 import * as Location from 'expo-location';
 import * as Camera from 'expo-camera';
 import * as Notifications from 'expo-notifications';
 import * as FileSystem from 'expo-file-system';
-import { makePhoneCall } from 'react-native-phone-call';
-import { sendSMS } from 'react-native-sms';
 
 export default function PhoneAssistant() {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -34,12 +32,7 @@ export default function PhoneAssistant() {
       // Request notification permission
       const { status: notifStatus } = await Notifications.requestPermissionsAsync();
       
-      console.log('Permissions:', {
-        contacts: contactsStatus,
-        location: locationStatus,
-        camera: cameraStatus,
-        notifications: notifStatus
-      });
+      console.log('Permissions granted!');
     } catch (error) {
       console.error('Permission error:', error);
     }
@@ -48,11 +41,6 @@ export default function PhoneAssistant() {
   // Make actual phone call
   const makePhoneCall = () => {
     if (phoneNumber) {
-      const args = {
-        number: phoneNumber,
-        prompt: true, // Show dialer prompt
-      };
-      
       // This will open native dialer
       Linking.openURL(`tel:${phoneNumber}`)
         .then(() => console.log('Dialer opened'))
@@ -85,7 +73,9 @@ export default function PhoneAssistant() {
 
         if (data.length > 0) {
           setContacts(data);
-          Alert.alert('Success', `Found ${data.length} contacts`);
+          Alert.alert('Success', `Found ${data.length} contacts\n\nFirst contact: ${data[0].name}`);
+        } else {
+          Alert.alert('Info', 'No contacts found');
         }
       }
     } catch (error) {
@@ -100,8 +90,8 @@ export default function PhoneAssistant() {
       if (status === 'granted') {
         const location = await Location.getCurrentPositionAsync({});
         setLocation(location);
-        Alert.alert('Location', 
-          `Lat: ${location.coords.latitude}\nLon: ${location.coords.longitude}`);
+        Alert.alert('Location Found', 
+          `Latitude: ${location.coords.latitude.toFixed(4)}\nLongitude: ${location.coords.longitude.toFixed(4)}`);
       }
     } catch (error) {
       Alert.alert('Error', 'Cannot get location: ' + error.message);
@@ -117,6 +107,7 @@ export default function PhoneAssistant() {
       },
       trigger: null, // Send immediately
     });
+    Alert.alert('Success', 'Notification sent!');
   };
 
   return (
@@ -129,6 +120,7 @@ export default function PhoneAssistant() {
       {/* Phone Call */}
       <View style={styles.featureCard}>
         <Text style={styles.featureTitle}>📞 Make Phone Call</Text>
+        <Text>Enter number and tap "Call" to open dialer</Text>
         <TextInput
           style={styles.input}
           placeholder="Enter phone number"
@@ -144,6 +136,7 @@ export default function PhoneAssistant() {
       {/* Send SMS */}
       <View style={styles.featureCard}>
         <Text style={styles.featureTitle}>💬 Send SMS</Text>
+        <Text>Compose message and tap "Send SMS"</Text>
         <TextInput
           style={styles.input}
           placeholder="Phone number"
@@ -153,7 +146,7 @@ export default function PhoneAssistant() {
         />
         <TextInput
           style={[styles.input, { height: 80 }]}
-          placeholder="Message"
+          placeholder="Your message here..."
           value={smsMessage}
           onChangeText={setSmsMessage}
           multiline
@@ -166,37 +159,38 @@ export default function PhoneAssistant() {
       {/* Contacts */}
       <View style={styles.featureCard}>
         <Text style={styles.featureTitle}>👥 Access Contacts</Text>
+        <Text>Tap to access your phone contacts</Text>
         <TouchableOpacity style={styles.button} onPress={accessContacts}>
-          <Text style={styles.buttonText}>Get Contacts</Text>
+          <Text style={styles.buttonText}>Get My Contacts</Text>
         </TouchableOpacity>
-        <Text>Found: {contacts.length} contacts</Text>
+        <Text style={styles.infoText}>Contacts found: {contacts.length}</Text>
       </View>
 
       {/* Location */}
       <View style={styles.featureCard}>
         <Text style={styles.featureTitle}>📍 Get Location</Text>
+        <Text>Tap to get your current GPS location</Text>
         <TouchableOpacity style={styles.button} onPress={getLocation}>
-          <Text style={styles.buttonText}>Get Current Location</Text>
+          <Text style={styles.buttonText}>Get My Location</Text>
         </TouchableOpacity>
         {location && (
-          <Text>Lat: {location.coords.latitude}, Lon: {location.coords.longitude}</Text>
+          <Text style={styles.infoText}>
+            Location: {location.coords.latitude.toFixed(4)}, {location.coords.longitude.toFixed(4)}
+          </Text>
         )}
       </View>
 
       {/* Notifications */}
       <View style={styles.featureCard}>
         <Text style={styles.featureTitle}>🔔 Send Notification</Text>
+        <Text>Tap to send a test notification</Text>
         <TouchableOpacity style={styles.button} onPress={sendNotification}>
           <Text style={styles.buttonText}>Send Test Notification</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Camera */}
-      <View style={styles.featureCard}>
-        <Text style={styles.featureTitle}>📷 Access Camera</Text>
-        <TouchableOpacity style={styles.button} onPress={() => Alert.alert('Camera', 'Camera access available')}>
-          <Text style={styles.buttonText}>Open Camera</Text>
-        </TouchableOpacity>
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>MRTC Phone Assistant v1.0</Text>
       </View>
     </ScrollView>
   );
@@ -209,7 +203,7 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#1a365d',
-    padding: 20,
+    padding: 25,
     alignItems: 'center',
   },
   title: {
@@ -236,25 +230,39 @@ const styles = StyleSheet.create({
   featureTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 5,
-    padding: 10,
-    marginVertical: 5,
+    borderRadius: 8,
+    padding: 12,
+    marginVertical: 8,
+    fontSize: 16,
   },
   button: {
     backgroundColor: '#1a365d',
     padding: 15,
     borderRadius: 25,
     alignItems: 'center',
-    marginVertical: 5,
+    marginVertical: 8,
   },
   buttonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  infoText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#666',
+  },
+  footer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  footerText: {
+    color: '#666',
+    fontSize: 12,
   },
 });
