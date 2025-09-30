@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MRTC Assistant</title>
+    <style>
+        :root {
+            --dark-blue: #1a365d;
+            --light-grey: #f7fafc;
+            --accent-blue: #2d3748;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--light-grey) 0%, #e2e8f0 100%);
+            min-height: 100vh;
+        }
+        
+        .chat-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: var(--dark-blue);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .logo-placeholder {
+            width: 60px;
+            height: 60px;
+            background: var(--light-grey);
+            border-radius: 50%;
+            margin: 0 auto 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--dark-blue);
+            font-weight: bold;
+            border: 3px solid var(--light-grey);
+        }
+        
+        .mode-indicator {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: rgba(255,255,255,0.2);
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+        
+        .mode-toggle {
+            position: absolute;
+            top: 10px;
+            left: 15px;
+            background: rgba(255,255,255,0.2);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.3);
+            transition: all 0.3s;
+        }
+        
+        .mode-toggle:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .voice-selector {
+            position: absolute;
+            top: 45px;
+            left: 15px;
+            background: rgba(255,255,255,0.2);
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: var(--light-grey);
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 18px;
+            border-radius: 18px;
+            max-width: 70%;
+            line-height: 1.4;
+        }
+        
+        .user-message {
+            background: var(--dark-blue);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .assistant-message {
+            background: white;
+            color: #2d3748;
+            border: 1px solid #e2e8f0;
+            border-bottom-left-radius: 5px;
+        }
+        
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .input-area input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 25px;
+            outline: none;
+            font-size: 14px;
+        }
+        
+        .input-area input:focus {
+            border-color: var(--dark-blue);
+        }
+        
+        .input-area button {
+            background: var(--dark-blue);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        
+        .input-area button:hover {
+            background: #2d3748;
+        }
+        
+        .input-area button:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+        }
+        
+        .voice-btn {
+            background: var(--dark-blue);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 50%;
+            cursor: pointer;
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s;
+        }
+        
+        .voice-btn:hover {
+            background: #2d3748;
+        }
+        
+        .voice-btn.listening {
+            background: #e53e3e;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .audio-visualizer {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 150px;
+            background: rgba(26, 54, 93, 0.9);
+            border-radius: 20px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            color: white;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .visualizer-bars {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 3px;
+            height: 60px;
+            margin-bottom: 15px;
+        }
+        
+        .visualizer-bar {
+            width: 6px;
+            background: linear-gradient(to top, #4299e1, #90cdf4);
+            border-radius: 3px;
+            transition: height 0.1s ease;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes barAnimation {
+            0% { transform: scaleY(0.3); }
+            50% { transform: scaleY(1); }
+            100% { transform: scaleY(0.3); }
+        }
+        
+        .typing-indicator {
+            color: #718096;
+            font-style: italic;
+            padding: 10px 20px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .knowledge-badge {
+            display: inline-block;
+            background: var(--dark-blue);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        .voice-options {
+            position: absolute;
+            top: 70px;
+            left: 15px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            display: none;
+            z-index: 1001;
+            min-width: 150px;
+        }
+
+        .voice-option {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        .voice-option:hover {
+            background: #f7fafc;
+        }
+
+        .voice-option.active {
+            background: var(--dark-blue);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="audio-visualizer" id="audioVisualizer">
+        <div class="visualizer-bars" id="visualizerBars">
+            <!-- Bars will be generated by JavaScript -->
+        </div>
+        <div>Speaking...</div>
+    </div>
+    
+    <div class="voice-options" id="voiceOptions">
+        <div class="voice-option active" data-voice="female">👩 Female Voice</div>
+        <div class="voice-option" data-voice="male">👨 Male Voice</div>
+    </div>
+
+    <div class="chat-container">
+        <div class="header">
+            <div class="mode-toggle" id="modeToggle">🎵 Voice Waveform Mode</div>
+            <div class="voice-selector" id="voiceSelector">👩 Voice: Female ▼</div>
+            <div class="logo-placeholder">MRTC</div>
+            <h2>MRTC Assistant</h2>
+            <p>Your Intelligent Research & Global Knowledge Assistant</p>
+            <div class="mode-indicator" id="modeIndicator">🌍 Global Mode</div>
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+            <div class="message assistant-message">
+                Hello! I'm MRTC Assistant with dual expertise in MRTC Consultancy and global knowledge. I can help with research solutions, task management, and answer questions about any topic worldwide. How can I assist you today?
+            </div>
+        </div>
+        
+        <div class="input-area">
+            <input type="text" id="userInput" placeholder="Ask about MRTC or any global topic...">
+            <div class="controls">
+                <button class="voice-btn" id="voiceBtn" title="Click to speak">
+                    🎤
+                </button>
+                <button id="sendButton">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // MRTC Knowledge Base
+        const mrtcKnowledge = {
+            company: {
+                name: "MRTC Research and Tasking Solutions",
+                description: "A premier consultancy specializing in research methodologies, data analysis, task management solutions, and strategic planning for organizations across various sectors.",
+                services: [
+                    "Research Design & Methodology",
+                    "Data Analysis & Interpretation",
+                    "Task Management Solutions",
+                    "Strategic Planning & Consulting",
+                    "Market Research & Analysis",
+                    "Operational Efficiency Studies",
+                    "Performance Metrics Development"
+                ],
+                sectors: [
+                    "Corporate Organizations",
+                    "Educational Institutions",
+                    "Government Agencies",
+                    "Non-Profit Organizations",
+                    "Healthcare Sector",
+                    "Technology Companies"
+                ],
+                values: [
+                    "Evidence-Based Solutions",
+                    "Client-Centric Approach",
+                    "Innovation & Excellence",
+                    "Confidentiality & Integrity"
+                ]
+            },
+            team: {
+                founder: {
+                    name: "Francis Fweta",
+                    role: "Founder & Lead Consultant",
+                    expertise: [
+                        "Research Methodology",
+                        "Strategic Planning",
+                        "Data Analysis",
+                        "Organizational Development"
+                    ],
+                    background: "Extensive experience in research design and organizational consulting with a proven track record of delivering innovative solutions to complex challenges.",
+                    philosophy: "Believes in data-driven decision making and creating sustainable solutions that transform organizations."
+                },
+                management: [
+                    {
+                        name: "Francis Fweta",
+                        role: "Founder & CEO",
+                        department: "Executive Leadership",
+                        bio: "Visionary leader with expertise in research methodology and organizational transformation."
+                    },
+                    {
+                        name: "Dr. Sarah Mitchell",
+                        role: "Head of Research",
+                        department: "Research & Development",
+                        bio: "PhD in Data Science with 15 years experience in quantitative research."
+                    },
+                    {
+                        name: "Michael Chen",
+                        role: "Operations Director",
+                        department: "Operations",
+                        bio: "Operations expert specializing in process optimization and efficiency."
+                    },
+                    {
+                        name: "Emily Rodriguez",
+                        role: "Client Relations Manager",
+                        department: "Business Development",
+                        bio: "Relationship management specialist with background in psychology."
+                    },
+                    {
+                        name: "David Thompson",
+                        role: "Data Analytics Lead",
+                        department: "Analytics",
+                        bio: "Data scientist with expertise in machine learning and predictive analytics."
+                    }
+                ]
+            },
+            projects: {
+                recent: [
+                    "Market Entry Strategy for Tech Startup - Developed comprehensive market analysis for Asian market expansion",
+                    "Organizational Efficiency Study for Manufacturing Firm - Improved operational efficiency by 35%",
+                    "Educational Program Effectiveness Research - Evaluated impact of educational initiatives across 50+ institutions",
+                    "Healthcare Service Optimization Analysis - Reduced patient wait times by 40% in hospital systems"
+                ],
+                capabilities: [
+                    "Large-scale data collection and analysis",
+                    "Qualitative and quantitative research methods",
+                    "Statistical modeling and prediction",
+                    "Stakeholder engagement and interviews",
+                    "Benchmarking and comparative analysis"
+                ]
+            },
+            contact: {
+                email: "info@mrtc-consulting.com",
+                phone: "+1-555-MRTC-NOW",
+                address: "Global Headquarters: 123 Research Way, Innovation District",
+                social: {
+                    linkedin: "linkedin.com/company/mrtc-consulting",
+                    twitter: "@MRTC_Consulting"
+                }
+            }
+        };
+
+        // App State
+        let isVoiceMode = true; // true = Voice Waveform, false = Text Mode
+        let isListening = false;
+        let recognition;
+        let currentVoice = 'female'; // 'female' or 'male'
+        let visualizerInterval;
+
+        // Initialize Speech Recognition
+        function initializeSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (SpeechRecognition) {
+                recognition = new SpeechRecognition();
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
+
+                recognition.onstart = function() {
+                    isListening = true;
+                    voiceBtn.classList.add('listening');
+                    voiceBtn.innerHTML = '🔴';
+                    addMessage("I'm listening...", 'assistant');
+                };
+
+                recognition.onresult = function(event) {
+                    const transcript = event.results[0][0].transcript;
+                    document.getElementById('userInput').value = transcript;
+                    sendMessage();
+                };
+
+                recognition.onend = function() {
+                    isListening = false;
+                    voiceBtn.classList.remove('listening');
+                    voiceBtn.innerHTML = '🎤';
+                };
+
+                recognition.onerror = function(event) {
+                    console.error('Speech recognition error:', event.error);
+                    isListening = false;
+                    voiceBtn.classList.remove('listening');
+                    voiceBtn.innerHTML = '🎤';
+                    addMessage("Sorry, I didn't catch that. Please try again.", 'assistant');
+                };
+            }
+        }
+
+        // Audio Visualizer Functions
+        function createVisualizerBars() {
+            const visualizerBars = document.getElementById('visualizerBars');
+            visualizerBars.innerHTML = '';
+            for (let i = 0; i < 20; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'visualizer-bar';
+                bar.style.height = '10px';
+                visualizerBars.appendChild(bar);
+            }
+        }
+
+        function startVisualizer() {
+            const bars = document.querySelectorAll('.visualizer-bar');
+            visualizerInterval = setInterval(() => {
+                bars.forEach(bar => {
+                    const randomHeight = Math.random() * 50 + 10;
+                    bar.style.height = `${randomHeight}px`;
+                    bar.style.animation = 'none';
+                    bar.offsetHeight; // Trigger reflow
+                    bar.style.animation = `barAnimation ${0.5 + Math.random() * 0.5}s infinite`;
+                });
+            }, 100);
+        }
+
+        function stopVisualizer() {
+            clearInterval(visualizerInterval);
+            const bars = document.querySelectorAll('.visualizer-bar');
+            bars.forEach(bar => {
+                bar.style.height = '10px';
+                bar.style.animation = 'none';
+            });
+        }
+
+        function showAudioVisualizer() {
+            if (isVoiceMode) {
+                document.getElementById('audioVisualizer').style.display = 'flex';
+                startVisualizer();
+            }
+        }
+
+        function hideAudioVisualizer() {
+            document.getElementById('audioVisualizer').style.display = 'none';
+            stopVisualizer();
+        }
+
+        // Text-to-speech function with voice selection
+        function speakText(text) {
+            if (isVoiceMode && 'speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                
+                // Configure voice based on selection
+                if (currentVoice === 'female') {
+                    utterance.rate = 0.9;
+                    utterance.pitch = 1.2;
+                    utterance.volume = 0.8;
+                } else {
+                    utterance.rate = 0.95;
+                    utterance.pitch = 0.8;
+                    utterance.volume = 0.9;
+                }
+                
+                const voices = speechSynthesis.getVoices();
+                let selectedVoice;
+                
+                if (currentVoice === 'female') {
+                    selectedVoice = voices.find(voice => 
+                        voice.name.includes('Female') || 
+                        voice.name.includes('woman') ||
+                        voice.name.includes('Samantha') ||
+                        voice.name.includes('Karen') ||
+                        voice.lang.includes('en-US')
+                    );
+                } else {
+                    selectedVoice = voices.find(voice => 
+                        voice.name.includes('Male') || 
+                        voice.name.includes('man') ||
+                        voice.name.includes('Daniel') ||
+                        voice.name.includes('Alex') ||
+                        (voice.lang.includes('en-US') && !voice.name.includes('Female'))
+                    );
+                }
+                
+                if (selectedVoice) {
+                    utterance.voice = selectedVoice;
+                }
+                
+                // Show visualizer when speaking starts
+                utterance.onstart = function() {
+                    showAudioVisualizer();
+                };
+                
+                // Hide visualizer when speaking ends
+                utterance.onend = function() {
+                    hideAudioVisualizer();
+                };
+                
+                speechSynthesis.speak(utterance);
+            }
+        }
+
+        // DOM Elements
+        const voiceBtn = document.getElementById('voiceBtn');
+        const modeIndicator = document.getElementById('modeIndicator');
+        const modeToggle = document.getElementById('modeToggle');
+        const sendButton = document.getElementById('sendButton');
+        const userInput = document.getElementById('userInput');
+        const voiceSelector = document.getElementById('voiceSelector');
+        const voiceOptions = document.getElementById('voiceOptions');
+
+        // Event Listeners
+        modeToggle.addEventListener('click', function() {
+            isVoiceMode = !isVoiceMode;
+            modeToggle.textContent = isVoiceMode ? '🎵 Voice Waveform Mode' : '📝 Text Mode';
+            addMessage(`Switched to ${isVoiceMode ? 'Voice Waveform Mode' : 'Text Mode'}`, 'assistant');
+        });
+
+        voiceSelector.addEventListener('click', function() {
+            voiceOptions.style.display = voiceOptions.style.display === 'block' ? 'none' : 'block';
+        });
+
+        // Voice selection
+        document.querySelectorAll('.voice-option').forEach(option => {
+            option.addEventListener('click', function() {
+                const voice = this.getAttribute('data-voice');
+                currentVoice = voice;
+                
+                // Update active state
+                document.querySelectorAll('.voice-option').forEach(opt => {
+                    opt.classList.remove('active');
+                });
+                this.classList.add('active');
+                
+                // Update selector text
+                voiceSelector.textContent = `👩 Voice: ${voice === 'female' ? 'Female' : 'Male'} ▼`;
+                voiceOptions.style.display = 'none';
+                
+                addMessage(`Voice changed to ${voice === 'female' ? 'Female' : 'Male'}`, 'assistant');
+            });
+        });
+
+        voiceBtn.addEventListener('click', function() {
+            if (!recognition) {
+                addMessage("Speech recognition is not supported in your browser. Please use Chrome or Edge.", 'assistant');
+                return;
+            }
+
+            if (isListening) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
+        });
+
+        sendButton.addEventListener('click', sendMessage);
+
+        userInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Close voice options when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!voiceSelector.contains(event.target) && !voiceOptions.contains(event.target)) {
+                voiceOptions.style.display = 'none';
+            }
+        });
+
+        // Main Send Message Function
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            
+            if (!message) return;
+            
+            // Disable button during processing
+            sendButton.disabled = true;
+            sendButton.textContent = 'Sending...';
+            
+            // Add user message
+            addMessage(message, 'user');
+            userInput.value = '';
+            
+            // Show typing indicator
+            const typingIndicator = document.createElement('div');
+            typingIndicator.className = 'typing-indicator';
+            typingIndicator.textContent = 'MRTC Assistant is thinking...';
+            document.getElementById('chatMessages').appendChild(typingIndicator);
+            
+            try {
+                const response = await getIntelligentResponse(message);
+                
+                // Remove typing indicator
+                typingIndicator.remove();
+                
+                // Add assistant response
+                addMessage(response.text, 'assistant');
+                
+                // Update mode indicator
+                updateModeIndicator(response.mode);
+                
+                // Speak the response if in voice mode
+                speakText(response.text);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                typingIndicator.remove();
+                const errorMessage = "I apologize, but I'm having trouble responding right now. Please try again.";
+                addMessage(errorMessage, 'assistant');
+                if (isVoiceMode) {
+                    speakText(errorMessage);
+                }
+            } finally {
+                // Re-enable button
+                sendButton.disabled = false;
+                sendButton.textContent = 'Send';
+            }
+        }
+        
+        function addMessage(text, sender) {
+            const messagesDiv = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            messageDiv.textContent = text;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function updateModeIndicator(mode) {
+            if (mode === 'mrtc') {
+                modeIndicator.textContent = '🏢 MRTC Mode';
+                modeIndicator.style.background = '#2d3748';
+            } else {
+                modeIndicator.textContent = '🌍 Global Mode';
+                modeIndicator.style.background = '#2b6cb0';
+            }
+        }
+
+        // Enhanced intelligent response system with REAL AI
+        async function getIntelligentResponse(message) {
+            const lowerMessage = message.toLowerCase();
+            
+            try {
+                // First, check if it's MRTC-specific to use our knowledge base
+                const mrtcKeywords = ['mrtc', 'francis fweta', 'research consultancy', 'tasking solutions', 'your company', 'your services', 'your team'];
+                const isMRTCQuery = mrtcKeywords.some(keyword => lowerMessage.includes(keyword));
+                
+                if (isMRTCQuery) {
+                    const mrtcResponse = generateMRTCResponse(lowerMessage);
+                    return {
+                        text: mrtcResponse,
+                        mode: 'mrtc'
+                    };
+                }
+                
+                // For all other queries, use DeepSeek API
+                const response = await fetch('https://api.deepseek.com/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer sk-f0186e53b9664539a4f03728fd1794d6'
+                    },
+                    body: JSON.stringify({
+                        model: "deepseek-chat",
+                        messages: [
+                            {
+                                role: "system",
+                                content: `You are MRTC Assistant, an AI for MRTC Research and Tasking Solutions. 
+                                Always be helpful, professional, and provide accurate information. 
+                                When asked about MRTC, use this company info: ${JSON.stringify(mrtcKnowledge)}
+                                For other topics, provide comprehensive, accurate information.`
+                            },
+                            {
+                                role: "user", 
+                                content: message
+                            }
+                        ],
+                        stream: false,
+                        temperature: 0.7
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('API request failed');
+                }
+                
+                const data = await response.json();
+                return {
+                    text: data.choices[0].message.content,
+                    mode: 'global'
+                };
+                
+            } catch (error) {
+                console.error('API Error:', error);
+                // Fallback to our local intelligence
+                const domain = detectKnowledgeDomain(lowerMessage);
+                if (domain) {
+                    return {
+                        text: generateWorldKnowledgeResponse(message, domain),
+                        mode: 'global'
+                    };
+                }
+                return {
+                    text: generateGeneralIntelligentResponse(message),
+                    mode: 'global'
+                };
+            }
+        }
+        
+        function generateMRTCResponse(message) {
+            // Company information
+            if (message.includes('company') || message.includes('what is mrtc') || message.includes('about mrtc')) {
+                return `MRTC Research and Tasking Solutions is ${mrtcKnowledge.company.description} 
+
+Our Core Services: ${mrtcKnowledge.company.services.join(', ')}
+
+We serve: ${mrtcKnowledge.sectors.join(', ')}
+
+Our Values: ${mrtcKnowledge.company.values.join(', ')}`;
+            }
+            
+            // Services queries
+            if (message.includes('service') || message.includes('offer') || message.includes('provide')) {
+                return `MRTC offers comprehensive research and consulting services:
+
+🔹 ${mrtcKnowledge.company.services.join('\n🔹 ')}
+
+We combine rigorous research methodologies with practical business insights to deliver measurable results for our clients.`;
+            }
+            
+            // Founder queries
+            if (message.includes('founder') || message.includes('francis') || message.includes('fweta')) {
+                return `Francis Fweta is the Founder and Lead Consultant of MRTC. 
+
+${mrtcKnowledge.team.founder.background}
+
+Expertise: ${mrtcKnowledge.team.founder.expertise.join(', ')}
+
+Philosophy: ${mrtcKnowledge.team.founder.philosophy}`;
+            }
+            
+            // Team queries
+            if (message.includes('team') || message.includes('management') || message.includes('staff')) {
+                const teamInfo = mrtcKnowledge.team.management.map(member => 
+                    `• ${member.name} - ${member.role}\n  ${member.bio}`
+                ).join('\n\n');
+                return `Our Management Team:\n\n${teamInfo}`;
+            }
+            
+            // Project queries
+            if (message.includes('project') || message.includes('work') || message.includes('case study')) {
+                return `Recent MRTC Projects:
+${mrtcKnowledge.projects.recent.map(project => `• ${project}`).join('\n')}
+
+Our Capabilities:
+${mrtcKnowledge.projects.capabilities.map(cap => `• ${cap}`).join('\n')}`;
+            }
+            
+            // Contact queries
+            if (message.includes('contact') || message.includes('reach') || message.includes('email') || message.includes('phone')) {
+                return `Contact MRTC Consultancy:
+
+📧 Email: ${mrtcKnowledge.contact.email}
+📞 Phone: ${mrtcKnowledge.contact.phone}
+📍 Address: ${mrtcKnowledge.contact.address}
+
+Follow us:
+LinkedIn: ${mrtcKnowledge.contact.social.linkedin}
+Twitter: ${mrtcKnowledge.contact.social.twitter}`;
+            }
+            
+            // Default MRTC response
+            return `As MRTC's intelligent assistant, I can help you with:
+
+• Our research and consulting services
+• Information about our team and leadership
+• Recent projects and case studies
+• Contact information and business inquiries
+
+What specific aspect of MRTC would you like to know more about?`;
+        }
+        
+        function detectKnowledgeDomain(message) {
+            const domains = {
+                science: ['physics', 'chemistry', 'biology', 'astronomy', 'science', 'scientific'],
+                history: ['history', 'historical', 'ancient', 'war', 'revolution'],
+                technology: ['technology', 'tech', 'ai', 'artificial intelligence', 'blockchain', 'quantum'],
+                business: ['business', 'market', 'economy', 'finance', 'investment'],
+                culture: ['culture', 'art', 'music', 'literature', 'philosophy'],
+                current_events: ['news', 'current', 'recent', 'politics', 'global']
+            };
+            
+            for (const [domain, keywords] of Object.entries(domains)) {
+                if (keywords.some(keyword => message.includes(keyword))) {
+                    return domain;
+                }
+            }
+            return null;
+        }
+        
+        function generateWorldKnowledgeResponse(message, domain) {
+            const domainResponses = {
+                science: `Regarding scientific topics like "${message}" - I can provide insights on recent scientific developments, research methodologies, and evidence-based information. For detailed scientific analysis, MRTC's research team can conduct specialized studies.`,
+                
+                history: `About historical topics like "${message}" - I can discuss historical contexts, analyze patterns, and draw lessons from past events. Historical analysis often informs our contemporary research approaches at MRTC.`,
+                
+                technology: `On technological subjects like "${message}" - I can explain current tech trends, emerging innovations, and their business implications. MRTC often helps clients navigate technological transformation and digital strategy.`,
+                
+                business: `Regarding business topics like "${message}" - I can discuss market trends, business strategies, and economic principles. This aligns closely with MRTC's consultancy services in strategic planning and market analysis.`,
+                
+                culture: `About cultural topics like "${message}" - I can explore cultural contexts, artistic movements, and philosophical ideas. Understanding culture is essential for MRTC's cross-cultural research and global client work.`,
+                
+                current_events: `On current events like "${message}" - I can provide context on recent developments and their potential impacts. MRTC monitors global trends to inform our research and advisory services.`
+            };
+            
+            return domainResponses[domain] || generateGeneralIntelligentResponse(message);
+        }
+        
+        function generateGeneralIntelligentResponse(message) {
+            return `Regarding "${message}" - As MRTC's intelligent assistant with global knowledge, I can help you with both MRTC-specific information and worldwide topics. I provide research-informed perspectives and practical insights. Could you tell me more about what specific information you're seeking?`;
+        }
+
+        // Initialize the app
+        initializeSpeechRecognition();
+        createVisualizerBars();
+
+        // Initialize speech synthesis voices
+        window.speechSynthesis.onvoiceschanged = function() {
+            // Voices are now loaded
+        };
+
+        // Add welcome message with capabilities
+        setTimeout(() => {
+            addMessage("I'm equipped to discuss: MRTC Consultancy services, our management team led by Francis Fweta, global business trends, scientific developments, historical contexts, technological innovations, and much more. What would you like to explore?", 'assistant');
+        }, 1000);
+    </script>
+</body>
+</html>
